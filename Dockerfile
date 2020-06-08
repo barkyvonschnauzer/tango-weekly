@@ -2,8 +2,8 @@
 FROM python:3-slim-buster
 
 COPY requirements.txt .
-COPY tango_stats.py .
+COPY tango_weekly.py .
 
 RUN apt-get update && pip install --no-cache-dir -r requirements.txt
 
-CMD [ "python3", "tango_stats.py" ]
+CMD [ "python3", "tango_weekly.py" ]
