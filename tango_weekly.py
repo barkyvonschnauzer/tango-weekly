@@ -23,21 +23,25 @@ def main():
 
     print ("**** GATHER WEEKLY STATS ****\n")
 
+    netcraft_characterization_results_json = {}
+    netcraft_stats = {}
+    uuid_list = []
+
     uuid_list, n_urls_received, n_urls_submitted = get_submission_info_from_cosmos()
 
     print ("**** URL Stats ****")
     print ("Number of URLs received: " + str(n_urls_received))
     print ("Number of URLs submitted: " + str(n_urls_submitted))
-    print ("Number of UUIDs to check: " + str(len(uuid_list)))
+    print ("Number of UUIDs to check: " + str(len(uuid_list)), flush=True)
 
     #print ("**** UUID List ****")
     #for uuid in uuid_list:
     #    print (uuid)
 
-    #if len(uuid_list) != 0:
-    netcraft_characterization_results_json = check_URLs_state_netcraft_by_UUID(uuid_list)
-    netcraft_stats = get_netcraft_stats(netcraft_characterization_results_json)
-    store_stats(processing_stats, n_urls_received, n_urls_submitted)
+    if len(uuid_list) != 0:
+        netcraft_characterization_results_json = check_URLs_state_netcraft_by_UUID(uuid_list)
+        netcraft_stats = get_netcraft_stats(netcraft_characterization_results_json)
+        store_stats(netcraft_stats, n_urls_received, n_urls_submitted)
 
 ##########################################################################
 #
@@ -112,48 +116,49 @@ def get_submission_info_from_cosmos():
 ##########################################################################
 def check_URLs_state_netcraft_by_UUID(uuid_list):
 
-    print("\n***** Query Netcraft for URL classification by UUID *****\n")
+    print("\n***** Query Netcraft for URL classification by UUID *****\n", flush=True)
 
     URL_characterization_results = {}
 
     for uuid in uuid_list:
         #uuid = json.dumps(result, indent=True).strip('\"')
 
-        #print("\n***** " + uuid + " *****")
+        print("\n***** " + uuid + " *****")
         # submit GET request to Netcraft for each UUID identified above
         # The below link is for development.  Once deployed, use:
         netcraftSubmissionCheck_url = "https://report.netcraft.com/api/v2/submission/" + str(uuid) + "/urls"
         #netcraftSubmissionCheck_url = "https://report.netcraft.com/api/v2/test/submission/" + uuid_str + "/urls"
 
-        #print ("Netcraft API call: " + netcraftSubmissionCheck_url)
+        print ("Netcraft API call: " + netcraftSubmissionCheck_url)
 
         # Check URLs with netcraft service
         headers = {'Content-type': 'application/json'}
-        request_data = {};
+        request_data = {}
 
         # Check URLs with netcraft service
         r_get = requests.get(netcraftSubmissionCheck_url, json=request_data, headers=headers)
+        print (r_get.status_code, flush=True)
 
         #print("Netcraft submission check response status code (" + str(uuid) + "): " + str(r_get.status_code))
         #print(r_get.json())
 
         if r_get.status_code == 200:
-            if r_get.json() == {}:
-                print("No results available.")
-
-            else:
-                #print("Results for uuid:", str(uuid), " available.")
+            if r_get.json():
+                print("Results for uuid:", str(uuid), " available.", flush=True)
                 # Get results
                 for entry in r_get.json()['urls']:
-#                    print(entry)
+                    print(entry)
                     url = entry['url']
                     url_state = entry['url_state']
-
+                    
                     URL_characterization_results[url]={'characterization':url_state}
+                    print(url,URL_characterization_results[url],flush=True)
 
-    #print ("**** URL Characterization Results from Netcraft ****")
-    #for k,v in URL_characterization_results.items():
-        #print (k,v)
+    print ("**** URL Characterization Results from Netcraft ****", flush=True)
+    for k,v in URL_characterization_results.items():
+        print (k,v)
+
+    print("Exiting Function\n", flush=True)
 
     return URL_characterization_results
 
@@ -171,7 +176,7 @@ def check_URLs_state_netcraft_by_UUID(uuid_list):
 #
 ##########################################################################
 def get_netcraft_stats(netcraft_characterization_results):
-    print ("***** Sort Netcraft Characterization Results *****\n")
+    print ("***** Sort Netcraft Characterization Results *****\n", flush=True)
 
     # keys by value:
     #      - processing
@@ -241,23 +246,23 @@ def get_netcraft_stats(netcraft_characterization_results):
     n_unavailable = len(unavailable)
     n_rejected    = len(rejected)
 
-    print ("n_phishing: " + str(n_phishing_results))
+    print ("n_phishing: " + str(n_phishing))
     print ("n_blocked: " + str(n_blocked))
     print ("n_nothreat: " + str(n_nothreat))
     print ("n_suspicious: " + str(n_suspicious))
     print ("n_malware: " + str(n_malware))
     print ("n_processing: " + str(n_processing))
     print ("n_unavailable: " + str(n_unavailable))
-    print ("n_rejected: " + str(n_rejected))
+    print ("n_rejected: " + str(n_rejected), flush=True)
 
     results = {'phishing': n_phishing, 
-               'blocked':n_blocked, 
-               'nothreat':n_nothreat, 
-               'suspicious':n_suspicious, 
-               'malware':n_malware, 
-               'processing':n_processing,
-               'unavailable':n_unavailable,
-               'rejected':n_rejected}
+               'blocked': n_blocked, 
+               'nothreat': n_nothreat, 
+               'suspicious': n_suspicious, 
+               'malware': n_malware, 
+               'processing': n_processing,
+               'unavailable': n_unavailable,
+               'rejected': n_rejected}
 
     return results
 
@@ -337,59 +342,62 @@ def store_stats(netcraft_stats, n_urls_received, n_urls_submitted):
     id_date  = int((datetime.utcnow()).timestamp())
     id_date_str = str(id_date)
 
-    # From submission_results, pull: urls_in, urls_net
-    urls_in_sum   = 0
-    urls_sent_sum = 0
-
-    for record in submission_results:
-        urls_in_sum += int(record['n_urls_in'])
-        urls_sent_sum += int(record['n_urls_unq'])
-
-    # From reporting_results, pull: n_phishing, 
-    #                               n_blocked, 
-    #                               n_nothreat, 
-    #                               n_suspicious, 
-    #                               n_malware,
-    #                               n_processing,
-    #                               n_unavailable, and
-    #                               n_rejected
+    # From reporting_results, pull: phishing, 
+    #                               blocked, 
+    #                               nothreat, 
+    #                               suspicious, 
+    #                               malware,
+    #                               processing,
+    #                               unavailable, and
+    #                               rejected
     # calculate and store the sum.
 
-    n_phishing    = int(netcraft_stats['n_phishing']) 
-    n_blocked     = int(netcraft_stats['n_blocked'])
-    n_nothreat    = int(netcraft_stats['n_nothreat'])
-    n_suspicious  = int(netcraft_stats['n_suspicious'])
-    n_malware     = int(netcraft_stats['n_malware'])
-    n_processing  = int(netcraft_stats['n_processing'])
-    n_unavailable = int(netcraft_stats['n_unavailable'])
-    n_rejected    = int(netcraft_Stats['n_rejected'])
+    if netcraft_stats:  # not empty
+        n_phishing    = int(netcraft_stats['phishing']) 
+        n_blocked     = int(netcraft_stats['blocked'])
+        n_nothreat    = int(netcraft_stats['nothreat'])
+        n_suspicious  = int(netcraft_stats['suspicious'])
+        n_malware     = int(netcraft_stats['malware'])
+        n_processing  = int(netcraft_stats['processing'])
+        n_unavailable = int(netcraft_stats['unavailable'])
+        n_rejected    = int(netcraft_stats['rejected'])
 
-    print ("**** COUNTS ****")
-    print ("urls_received: " + str(n_urls_received))
-    print ("urls_submitted: " + str(n_urls_submitted))
-    print ("phishing_sum: " + str(n_phishing))
-    print ("blocked_sum: " + str(n_blocked))
-    print ("nothreat_sum: " + str(n_nothreat))
-    print ("suspicious_sum: " + str(n_suspicious))
-    print ("malware_sum: " + str(n_malware))
-    print ("processing_sum: " + str(n_processing))
-    print ("unavailable_sum: " + str(n_unavailable))
-    print ("rejected_sum: " + str(n_rejected))
+        print ("**** COUNTS ****")
+        print ("urls_received: " + str(n_urls_received))
+        print ("urls_submitted: " + str(n_urls_submitted))
+        print ("phishing_sum: " + str(n_phishing))
+        print ("blocked_sum: " + str(n_blocked))
+        print ("nothreat_sum: " + str(n_nothreat))
+        print ("suspicious_sum: " + str(n_suspicious))
+        print ("malware_sum: " + str(n_malware))
+        print ("processing_sum: " + str(n_processing))
+        print ("unavailable_sum: " + str(n_unavailable))
+        print ("rejected_sum: " + str(n_rejected), flush=True)
 
-    container.upsert_item( { 'id': id_date_str,
-                             'date_time': id_date_str,
-                             'date': date_str, 
-                             'n_urls_received': n_urls_received,
-                             'n_urls_submitted': n_urls_submitted,
-                             'n_phishing': n_phishing,
-                             'n_blocked': n_blocked,
-                             'n_nothreat': n_nothreat,
-                             'n_suspicious': n_suspicious, 
-                             'n_malware': n_malware, 
-                             'n_processing': n_processing,
-                             'n_unavailable': n_unavailable,
-                             'n_rejected': n_rejected })
+        container.upsert_item( { 'id': id_date_str,
+                                 'date_time': id_date_str,
+                                 'date': date_str, 
+                                 'n_urls_received': n_urls_received,
+                                 'n_urls_submitted': n_urls_submitted,
+                                 'n_phishing': n_phishing,
+                                 'n_blocked': n_blocked,
+                                 'n_nothreat': n_nothreat,
+                                 'n_suspicious': n_suspicious, 
+                                 'n_malware': n_malware, 
+                                 'n_processing': n_processing,
+                                 'n_unavailable': n_unavailable,
+                                 'n_rejected': n_rejected })
 
+    else: # empty
+        print ("**** COUNTS ****")
+        print ("urls_received: " + str(n_urls_received))
+        print ("urls_submitted: " + str(n_urls_submitted))
+
+        container.upsert_item( { 'id': id_date_str,
+                                 'date_time': id_date_str,
+                                 'date': date_str,
+                                 'n_urls_received': n_urls_received,
+                                 'n_urls_submitted': n_urls_submitted })
 
 if __name__ == "__main__":
     main()

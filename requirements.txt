@@ -1,3 +1,4 @@
 azure.cosmos
 datetime
 python-dateutil
+requests
