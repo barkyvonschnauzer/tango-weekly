@@ -121,44 +121,31 @@ def check_URLs_state_netcraft_by_UUID(uuid_list):
     URL_characterization_results = {}
 
     for uuid in uuid_list:
-        #uuid = json.dumps(result, indent=True).strip('\"')
+        #print("\n***** " + uuid + " *****", flush=True)
 
-        print("\n***** " + uuid + " *****")
-        # submit GET request to Netcraft for each UUID identified above
-        # The below link is for development.  Once deployed, use:
-        netcraftSubmissionCheck_url = "https://report.netcraft.com/api/v2/submission/" + str(uuid) + "/urls"
-        #netcraftSubmissionCheck_url = "https://report.netcraft.com/api/v2/test/submission/" + uuid_str + "/urls"
-
-        print ("Netcraft API call: " + netcraftSubmissionCheck_url)
+        netcraftSubmissionCheck_url = "https://report.netcraft.com/api/v2/submission/" + uuid + "/urls"
 
         # Check URLs with netcraft service
-        headers = {'Content-type': 'application/json'}
-        request_data = {}
+        r_get = requests.get(netcraftSubmissionCheck_url, timeout=2)
 
-        # Check URLs with netcraft service
-        r_get = requests.get(netcraftSubmissionCheck_url, json=request_data, headers=headers)
-        print (r_get.status_code, flush=True)
-
-        #print("Netcraft submission check response status code (" + str(uuid) + "): " + str(r_get.status_code))
+        #print("Netcraft submission check response status code (" + uuid + "): " + str(r_get.status_code))
         #print(r_get.json())
 
         if r_get.status_code == 200:
             if r_get.json():
-                print("Results for uuid:", str(uuid), " available.", flush=True)
+                print("Results for uuid:" + uuid + " available.")
+
                 # Get results
                 for entry in r_get.json()['urls']:
-                    print(entry)
                     url = entry['url']
                     url_state = entry['url_state']
                     
-                    URL_characterization_results[url]={'characterization':url_state}
-                    print(url,URL_characterization_results[url],flush=True)
+                    URL_characterization_results[url] = {'characterization':url_state}
+                    #print(url,URL_characterization_results[url],flush=True)
 
     print ("**** URL Characterization Results from Netcraft ****", flush=True)
-    for k,v in URL_characterization_results.items():
-        print (k,v)
-
-    print("Exiting Function\n", flush=True)
+#    for k,v in URL_characterization_results.items():
+#        print (k,v)
 
     return URL_characterization_results
 
